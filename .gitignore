@@ -1,0 +1,8 @@
+.idea
+node_modules
+
+src/results/desktop/*
+!src/results/desktop/.gitkeep
+
+/src/results/mobile/*
+!/src/results/mobile/.gitkeep

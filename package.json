@@ -1,0 +1,11 @@
+{
+  "devDependencies": {
+    "lighthouse": "^6.0.0"
+  },
+  "dependencies": {
+    "lodash": "^4.17.15",
+    "mongodb": "^3.5.8",
+    "shelljs": "^0.8.4",
+    "uuid": "^8.1.0"
+  }
+}
