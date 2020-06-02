@@ -1,8 +1,8 @@
-const mongodb      = require('mongodb').MongoClient;
-const shell        = require('shelljs');
-const {v1: uuidv1} = require('uuid');
-const _            = require('lodash');
-const fs           = require('fs');
+const mongodb = require('mongodb').MongoClient;
+const shell   = require('shelljs');
+// const {v1: uuidv1} = require('uuid');
+const _       = require('lodash');
+const fs      = require('fs');
 
 (async () => {
     const mongoClient = new mongodb('mongodb://localhost:27017');
@@ -28,8 +28,6 @@ const fs           = require('fs');
     async function assignPagesToLighthouseDesktopWorkable() {
         while (true) {
             if (_.size(lighthouseWorkableDesktop) !== 1) {
-                let workableId = uuidv1();
-
                 let queryPipeline = [
                     {
                         $lookup: {
@@ -143,7 +141,7 @@ const fs           = require('fs');
 
                     {
                         $addFields: {
-                            id : {$toString: '$_id'}
+                            id: {$toString: '$_id'}
                         }
                     },
                     // {$project: {_id: 0}}, // no need for now
@@ -154,7 +152,7 @@ const fs           = require('fs');
 
                 let pagesForWork = await pagesCollection.aggregate(queryPipeline).toArray();
 
-                console.log(pagesForWork);
+                // console.log(pagesForWork);
 
                 if (pagesForWork.length) {
                     let pageForWork = pagesForWork[0];
@@ -185,20 +183,20 @@ const fs           = require('fs');
             'lighthouse ' + url + ' --emulated-form-factor=desktop --output=json --output-path=./results/desktop/' + id + '.json',
             {async: true},
             async function (code, stdout, stderr) {
-                console.log('Done ' + id)
-
                 await pagesCollection.updateOne(
                     {
                         _id: workerInfo.pageInfo._id
                     },
                     {
                         $set: {
-                            'updated_at.last_page_speed_desktop_checked_at': new Date().getTime()
+                            'updated_at.last_page_speed_desktop_checked_at': new Date().getTime().toString()
                         }
                     }
                 )
 
                 delete lighthouseWorkableDesktop[id];
+
+                console.log('Done ' + id)
             })
     }
 
@@ -235,7 +233,7 @@ const fs           = require('fs');
         while (true) {
             // currently working with one file at a time
             let files = await fs.readdirSync('./results/desktop')
-            _.pull(files, '.gitignore')
+            _.pull(files, '.gitkeep')
 
             if (files.length > 0) {
                 let pickedFile = files[0]
@@ -249,7 +247,14 @@ const fs           = require('fs');
                     async (err, file) => {
                         let result = JSON.parse(file)
 
-                        if (result.hasOwnProperty('runWarnings') && result.runWarnings.length) return;
+                        console.log(result)
+
+                        if (
+                            result.hasOwnProperty('runWarnings')
+                            && result.runWarnings.length
+                            && !result.runWarnings[0].includes('was redirected to')
+                        ) return;
+
                         if (result.hasOwnProperty('runtimeError') && Object.keys(result.runtimeError).length) return;
 
                         if (result.hasOwnProperty('userAgent')) {
@@ -270,6 +275,10 @@ const fs           = require('fs');
                         }
 
                         if (result.hasOwnProperty('audits')) {
+                            if (result.audits.hasOwnProperty('final-screenshot')) {
+                                delete result.audits['final-screenshot']
+                            }
+
                             Object.keys(result.audits).forEach(key => {
                                 if (result.audits[key].hasOwnProperty('id')) {
                                     delete result.audits[key]['id'];
