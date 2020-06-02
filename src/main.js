@@ -247,7 +247,7 @@ const fs      = require('fs');
                     async (err, file) => {
                         let result = JSON.parse(file)
 
-                        console.log(result)
+                        // console.log(result)
 
                         if (
                             result.hasOwnProperty('runWarnings')
@@ -277,6 +277,10 @@ const fs      = require('fs');
                         if (result.hasOwnProperty('audits')) {
                             if (result.audits.hasOwnProperty('final-screenshot')) {
                                 delete result.audits['final-screenshot']
+                            }
+
+                            if (result.audits.hasOwnProperty('screenshot-thumbnails')) {
+                                delete result.audits['screenshot-thumbnails']
                             }
 
                             Object.keys(result.audits).forEach(key => {
@@ -354,6 +358,8 @@ const fs      = require('fs');
                             },
                             {upsert: true}
                         )
+
+                        console.log('=== size is ' + (JSON.stringify(result).length / 1000))
                     }
                 )
 
