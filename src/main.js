@@ -176,6 +176,10 @@ const fs      = require('fs');
     }
 
     function generateLighthouseDesktopResult(id) {
+        if (!lighthouseWorkableDesktop.hasOwnProperty(id)) {
+            return console.log('Somehow ' + id + ' got deleted')
+        }
+
         let workerInfo = lighthouseWorkableDesktop[id]
         let url        = workerInfo.url
 
@@ -211,10 +215,8 @@ const fs      = require('fs');
         while (true) {
             let workableId = getDesktopWorkableEntry()
 
-            if (workableId) {
-                if (lighthouseWorkableDesktop.hasOwnProperty(workableId)) {
-                    lighthouseWorkableDesktop[workableId].working = true;
-                }
+            if (workableId && lighthouseWorkableDesktop.hasOwnProperty(workableId)) {
+                lighthouseWorkableDesktop[workableId].working = true;
 
                 generateLighthouseDesktopResult(workableId)
             }
@@ -397,21 +399,4 @@ const fs      = require('fs');
     ])
 
     await mongoClient.close()
-
-    // let c = await db.collection('pages')
-    //
-    // console.log(await c.find().toArray())
-
-
-// shell.exec('lighthouse https://www.exonhostttttt.com', {async: true}, (code, stdout, stderr) => {
-//     console.log(code)
-//     // console.log(stdout)
-//     console.log(stderr)
-// })
-// shell.exec('lighthouse https://www.exonhost.com/web-hosting.html', {async: true})
-
-// shell.exec('lighthouse https://www.exonhostttt.com --emulated-form-factor desktop', {async: true}, function (code, stdout, stderr) {
-//     console.log('hi')
-// })
-
 })();
