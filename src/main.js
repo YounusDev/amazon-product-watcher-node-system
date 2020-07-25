@@ -1,22 +1,26 @@
 const mongodb = require('mongodb').MongoClient;
-const shell   = require('shelljs');
+const shell = require('shelljs');
 // const {v1: uuidv1} = require('uuid');
-const _       = require('lodash');
-const fs      = require('fs');
+const _ = require('lodash');
+const fs = require('fs');
+
+const { MONGODB_CONNECTION, CHECKER_NAME } = require('../config');
 
 (async () => {
-    const mongoClient = new mongodb('mongodb://localhost:27017');
-    let db            = null
+    const mongoClient = new mongodb(MONGODB_CONNECTION);
+    let db = null
 
     await mongoClient.connect()
         .then(connection => {
+            console.log('Mongodb connected successfully')
+
             db = connection.db('amz_watch')
         })
         .catch(() => {
             console.log('MongoDB connection error')
         })
 
-    let pagesCollection     = await db.collection('pages')
+    let pagesCollection = await db.collection('pages')
     let pagesMetaCollection = await db.collection('pages_meta')
 
     let lighthouseWorkableDesktop = {}
@@ -27,12 +31,14 @@ const fs      = require('fs');
 
     async function assignPagesToLighthouseDesktopWorkable() {
         while (true) {
-            if (_.size(lighthouseWorkableDesktop) !== 1) {
+            console.log('Getting page for desktop speed check ' + new Date().toString());
+
+            if (_.size(lighthouseWorkableDesktop) !== 2) {
                 let queryPipeline = [
                     {
                         $lookup: {
-                            from    : 'users_domains',
-                            let     : {domain_id: '$domain_id'},
+                            from: 'users_domains',
+                            let: { domain_id: '$domain_id' },
                             pipeline: [
                                 {
                                     $match: {
@@ -46,13 +52,13 @@ const fs      = require('fs');
                                                 },
                                                 {
                                                     $ne: [
-                                                        {$type: '$domain_use_for.pages_speed_check_service'},
+                                                        { $type: '$domain_use_for.pages_speed_check_service' },
                                                         'missing'
                                                     ]
                                                 },
                                                 {
                                                     $ne: [
-                                                        {$type: '$domain_use_for.pages_speed_check_service.status'},
+                                                        { $type: '$domain_use_for.pages_speed_check_service.status' },
                                                         'missing'
                                                     ]
                                                 },
@@ -67,11 +73,11 @@ const fs      = require('fs');
                                     }
                                 }
                             ],
-                            as      : 'user_domain'
+                            as: 'user_domain'
                         }
                     },
 
-                    {$unwind: '$user_domain'},
+                    { $unwind: '$user_domain' },
 
                     // not taking page status currently but support added
                     // {
@@ -122,10 +128,10 @@ const fs      = require('fs');
                                                 $sum: [
                                                     {
                                                         $convert: {
-                                                            input  : '$updated_at.last_page_speed_desktop_checked_at',
-                                                            to     : 'double',
+                                                            input: '$updated_at.last_page_speed_desktop_checked_at',
+                                                            to: 'double',
                                                             onError: 0,
-                                                            onNull : 0
+                                                            onNull: 0
                                                         }
                                                     },
                                                     86400 * 1000 // to ms
@@ -141,13 +147,13 @@ const fs      = require('fs');
 
                     {
                         $addFields: {
-                            id: {$toString: '$_id'}
+                            id: { $toString: '$_id' }
                         }
                     },
                     // {$project: {_id: 0}}, // no need for now
 
-                    {$sort: {'updated_at.last_page_speed_desktop_checked_at': 1}},
-                    {$limit: 1}
+                    { $sort: { 'updated_at.last_page_speed_desktop_checked_at': 1 } },
+                    { $limit: 1 }
                 ]
 
                 let pagesForWork = await pagesCollection.aggregate(queryPipeline).toArray();
@@ -157,15 +163,19 @@ const fs      = require('fs');
                 if (pagesForWork.length) {
                     let pageForWork = pagesForWork[0];
 
-                    lighthouseWorkableDesktop[pageForWork.id] = {
-                        url     : pageForWork.url,
-                        pageInfo: pageForWork,
-                        working : false
+                    if (!lighthouseWorkableDesktop.hasOwnProperty(pageForWork.id)) {
+                        console.log('Assigning for work ' + pageForWork.id)
+
+                        lighthouseWorkableDesktop[pageForWork.id] = {
+                            url: pageForWork.url,
+                            pageInfo: pageForWork,
+                            working: false
+                        }
                     }
                 }
             }
 
-            await sleep(1000)
+            await sleep(3000)
         }
     }
 
@@ -181,11 +191,11 @@ const fs      = require('fs');
         }
 
         let workerInfo = lighthouseWorkableDesktop[id]
-        let url        = workerInfo.url
+        let url = workerInfo.url
 
         shell.exec(
-            'lighthouse ' + url + ' --emulated-form-factor=desktop --output=json --output-path=./results/desktop/' + id + '.json',
-            {async: true},
+            'lighthouse ' + url + ' --emulated-form-factor=desktop --chrome-flags="--headless --no-sandbox" --output=json --output-path=./results/desktop/' + id + '.json',
+            { async: true },
             async function (code, stdout, stderr) {
                 await pagesCollection.updateOne(
                     {
@@ -221,7 +231,7 @@ const fs      = require('fs');
                 generateLighthouseDesktopResult(workableId)
             }
 
-            await sleep(500);
+            await sleep(3000);
         }
     }
 
@@ -239,7 +249,7 @@ const fs      = require('fs');
 
             if (files.length > 0) {
                 let pickedFile = files[0]
-                let id         = _.split(pickedFile, '.')[0]
+                let id = _.split(pickedFile, '.')[0]
 
                 console.log('Now parsing ' + pickedFile)
 
@@ -354,11 +364,11 @@ const fs      = require('fs');
                                 $setOnInsert: {
                                     page_id: id
                                 },
-                                $set        : {
+                                $set: {
                                     lhr_desktop_result: result
                                 }
                             },
-                            {upsert: true}
+                            { upsert: true }
                         )
 
                         console.log('=== size is ' + (JSON.stringify(result).length / 1000))
@@ -370,7 +380,7 @@ const fs      = require('fs');
                 fs.unlinkSync('./results/desktop/' + pickedFile);
             }
 
-            await sleep(500)
+            await sleep(3000)
         }
     }
 
